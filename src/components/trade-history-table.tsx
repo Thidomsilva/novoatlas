@@ -1,3 +1,5 @@
+
+'use client';
 import {
   Table,
   TableBody,
@@ -10,12 +12,29 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Trade } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
 interface TradeHistoryTableProps {
   trades: Trade[];
 }
 
+const TradeTime = ({ timestamp }: { timestamp: Date }) => {
+    const [time, setTime] = useState('');
+  
+    useEffect(() => {
+      setTime(new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+    }, [timestamp]);
+  
+    return <>{time || '...'}</>;
+  };
+
 export function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <ScrollArea className="h-[200px] w-full rounded-md border">
         <Table>
@@ -32,7 +51,7 @@ export function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
         <TableBody>
             {trades.map((trade) => (
             <TableRow key={trade.id}>
-                <TableCell>{new Date(trade.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</TableCell>
+                <TableCell>{isClient ? <TradeTime timestamp={trade.timestamp} /> : '...'}</TableCell>
                 <TableCell className="font-medium">{trade.pair}</TableCell>
                 <TableCell>
                     <span className={cn(
