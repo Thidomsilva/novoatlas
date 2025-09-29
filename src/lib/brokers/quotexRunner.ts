@@ -59,12 +59,19 @@ class QuotexRunnerImpl {
             timezoneId: TIMEZONE,
             viewport: { width: 1366, height: 800 },
             colorScheme: 'light',
-            userAgent: undefined,
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             proxy: PROXY ? { server: PROXY } : undefined,
             permissions: ['clipboard-read', 'clipboard-write'],
             geolocation: { latitude: -23.5505, longitude: -46.6333 },
             hasTouch: false,
             javaScriptEnabled: true,
+            args: [
+              '--disable-blink-features=AutomationControlled',
+              '--disable-features=VizDisplayCompositor',
+              '--disable-web-security',
+              '--no-first-run',
+              '--no-default-browser-check'
+            ],
           });
           const page = context.pages()[0] || (await context.newPage());
           await this.applyContextSettings(context);
@@ -102,9 +109,28 @@ class QuotexRunnerImpl {
 
   private async applyContextSettings(context: BrowserContext) {
     await context.addInitScript(() => {
+      // Melhorar stealth - parecer mais humano
       Object.defineProperty(navigator, 'language', { get: () => 'pt-BR' });
       Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en-US', 'en'] });
       Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+      Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+      Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+      
+      // Remover indicadores de webdriver
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      
+      // Simular chrome real
+      Object.defineProperty(window, 'chrome', {
+        get: () => ({
+          runtime: {},
+          loadTimes: function() {},
+          csi: function() {},
+          app: {}
+        })
+      });
+      
+      // Mascarar automation
+      try { delete (window.navigator as any).__proto__.webdriver; } catch {}
     });
   }
 
@@ -115,21 +141,47 @@ class QuotexRunnerImpl {
     const password = creds?.password ?? process.env.QUOTEX_PASSWORD;
     if (!email || !password) throw new Error('Missing QUOTEX_EMAIL/QUOTEX_PASSWORD');
 
+    // Verificar se já está logado primeiro
     await page.goto(QX_TRADE_URL, { waitUntil: 'domcontentloaded' });
     if (await this.isLogged(page)) return;
 
+    // Navegar para página de login
+    console.log('🌐 Navegando para página de login...');
     await page.goto(QX_LOGIN_URL, { waitUntil: 'domcontentloaded' });
-    await this.humanType(page, 'input[name="email"]', email);
-    await this.humanType(page, 'input[name="password"]', password);
-    await this.humanClick(page, 'button[type="submit"], button:has-text("Entrar"), button:has-text("Login")');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-    if (!(await this.isLogged(page))) {
-      try {
-        await this.debugScreenshot(page, 'login-failed');
-      } catch {}
-      throw new Error('Login failed');
+    
+    // Aguardar e tentar lidar com Cloudflare
+    await this.handleCloudflare(page);
+    
+    // Tentar encontrar os campos de login
+    console.log('🔍 Procurando campos de login...');
+    const emailInput = await this.findEmailInput(page);
+    const passwordInput = await this.findPasswordInput(page);
+    
+    if (!emailInput || !passwordInput) {
+      await this.debugScreenshot(page, 'login-fields-not-found');
+      throw new Error('Campos de login não encontrados na página');
     }
+    
+    console.log('✅ Campos encontrados, fazendo login...');
+    await this.humanTypeInElement(page, emailInput, email);
+    await this.humanTypeInElement(page, passwordInput, password);
+    
+    const submitButton = await this.findSubmitButton(page);
+    if (submitButton) {
+      await this.humanClickElement(page, submitButton);
+    } else {
+      throw new Error('Botão de submit não encontrado');
+    }
+    
+    await page.waitForLoadState('networkidle', { timeout: 30000 });
+    await page.waitForTimeout(3000);
+    
+    if (!(await this.isLogged(page))) {
+      await this.debugScreenshot(page, 'login-failed');
+      throw new Error('Login failed - credenciais inválidas ou página mudou');
+    }
+    
+    console.log('✅ Login realizado com sucesso!');
   }
 
   async getBalance(): Promise<number | undefined> {
@@ -270,6 +322,147 @@ class QuotexRunnerImpl {
       }
     }
     // fallback: ignorar se não achar (plataforma pode usar expiração por hora-alvo)
+  }
+
+  private async handleCloudflare(page: Page): Promise<void> {
+    console.log('🛡️ Verificando Cloudflare...');
+    
+    // Aguardar a página carregar
+    await page.waitForTimeout(3000);
+    
+    // Verificar se tem checkbox do Cloudflare
+    const cloudflareCheck = await page.$('input[type="checkbox"]').catch(() => null);
+    if (cloudflareCheck) {
+      console.log('🤖 Detectado Cloudflare - tentando resolver...');
+      
+      // Aguardar um tempo aleatório (mais humano)
+      await page.waitForTimeout(this.rand(2000, 4000));
+      
+      // Tentar clicar no checkbox
+      try {
+        await cloudflareCheck.click();
+        console.log('✅ Checkbox clicado, aguardando verificação...');
+        
+        // Aguardar até 30 segundos para a verificação passar
+        await page.waitForFunction(
+          () => {
+            const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+            return !checkbox || checkbox.checked;
+          },
+          { timeout: 30000 }
+        );
+        
+        // Aguardar mais um pouco para garantir que a página seja liberada
+        await page.waitForTimeout(2000);
+        
+      } catch (error) {
+        console.log('⚠️ Não conseguiu resolver Cloudflare automaticamente');
+        // Não falhar - talvez seja resolvido manualmente
+      }
+    }
+    
+    // Aguardar navegação se necessário
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+  }
+
+  private async findEmailInput(page: Page): Promise<any> {
+    const selectors = [
+      'input[name="email"]',
+      'input[type="email"]', 
+      'input[placeholder*="email" i]',
+      'input[placeholder*="e-mail" i]',
+      'input[id*="email" i]',
+      'input[class*="email" i]',
+      'input[autocomplete="email"]',
+      'form input:first-of-type',
+      'input:nth-of-type(1)'
+    ];
+    
+    for (const selector of selectors) {
+      const element = await page.$(selector);
+      if (element) {
+        console.log(`📧 Campo de email encontrado: ${selector}`);
+        return element;
+      }
+    }
+    
+    return null;
+  }
+
+  private async findPasswordInput(page: Page): Promise<any> {
+    const selectors = [
+      'input[name="password"]',
+      'input[type="password"]',
+      'input[placeholder*="senha" i]',
+      'input[placeholder*="password" i]',
+      'input[id*="password" i]',
+      'input[class*="password" i]',
+      'input[autocomplete="current-password"]'
+    ];
+    
+    for (const selector of selectors) {
+      const element = await page.$(selector);
+      if (element) {
+        console.log(`🔒 Campo de senha encontrado: ${selector}`);
+        return element;
+      }
+    }
+    
+    return null;
+  }
+
+  private async findSubmitButton(page: Page): Promise<any> {
+    const selectors = [
+      'button[type="submit"]',
+      'input[type="submit"]',
+      'button:has-text("Entrar")',
+      'button:has-text("Login")',
+      'button:has-text("Conectar")',
+      '[role="button"]:has-text("Entrar")',
+      'form button'
+    ];
+    
+    for (const selector of selectors) {
+      const element = await page.$(selector);
+      if (element) {
+        console.log(`🔘 Botão de submit encontrado: ${selector}`);
+        return element;
+      }
+    }
+    
+    return null;
+  }
+
+  private async humanTypeInElement(page: Page, element: any, text: string): Promise<void> {
+    await element.click({ delay: this.rand(20, 60) });
+    await page.waitForTimeout(this.rand(100, 300));
+    
+    // Limpar campo primeiro
+    await page.keyboard.press('Control+A');
+    await page.waitForTimeout(50);
+    
+    for (const char of text) {
+      await page.keyboard.type(char, { delay: this.rand(30, 120) });
+      if (Math.random() < 0.02) await page.waitForTimeout(this.rand(50, 150));
+    }
+  }
+
+  private async humanClickElement(page: Page, element: any): Promise<void> {
+    const box = await element.boundingBox();
+    if (!box) {
+      await element.click();
+      return;
+    }
+    
+    const x = box.x + this.rand(0.3, 0.7) * box.width;
+    const y = box.y + this.rand(0.3, 0.7) * box.height;
+    const steps = Math.floor(this.rand(10, 20));
+    
+    await page.mouse.move(x + this.rand(-10, 10), y + this.rand(-10, 10), { steps });
+    await page.waitForTimeout(this.rand(100, 300));
+    await page.mouse.down();
+    await page.waitForTimeout(this.rand(50, 150));
+    await page.mouse.up();
   }
 }
 
