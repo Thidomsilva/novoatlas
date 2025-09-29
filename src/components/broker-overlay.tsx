@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Move, Play, Square, Bot, Loader2 } from 'lucide-react';
+import { Move, Play, Square, Bot, Loader2, X, CheckCircle, AlertCircle } from 'lucide-react';
 import type { Broker, RiskSettings, Trade } from '@/lib/types';
 import { AtlasLogo } from './atlas-logo';
 import {
@@ -27,6 +27,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
 
 const formSchema = z.object({
   dailyProfitTarget: z.coerce.number().min(0, "Must be positive"),
@@ -44,6 +53,8 @@ interface BrokerOverlayProps {
   isMobile: boolean;
 }
 
+const BROKERS: Broker[] = ['Quotex', 'Exnova', 'Pocket Option', 'IQOption', 'Deriv'];
+
 export default function BrokerOverlay({
   isTrading,
   onToggleTrading,
@@ -52,7 +63,11 @@ export default function BrokerOverlay({
   trades,
   isMobile
 }: BrokerOverlayProps) {
-  const [broker, setBroker] = useState<Broker>('IQOption');
+  const [selectedBroker, setSelectedBroker] = useState<Broker>('Quotex');
+  const [connectedBroker, setConnectedBroker] = useState<Broker | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 32, y: 32 });
   const offsetRef = useRef({ x: 0, y: 0 });
@@ -79,6 +94,28 @@ export default function BrokerOverlay({
         title: "Settings Saved",
         description: "Your new risk management settings have been applied.",
     });
+  }
+
+  const handleConnectBroker = () => {
+    setIsConnecting(true);
+    // Simulate connection
+    setTimeout(() => {
+        setConnectedBroker(selectedBroker);
+        setIsConnecting(false);
+        setIsDialogOpen(false);
+        toast({
+            title: `Connected to ${selectedBroker}`,
+            description: "You are now ready to start trading.",
+        });
+    }, 1500);
+  };
+  
+  const handleDisconnect = () => {
+    toast({
+      title: `Disconnected from ${connectedBroker}`,
+      variant: 'destructive'
+    })
+    setConnectedBroker(null);
   }
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -140,6 +177,7 @@ export default function BrokerOverlay({
         setIsLoadingAi(false);
     }
   };
+  
 
   return (
     <>
@@ -158,26 +196,78 @@ export default function BrokerOverlay({
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium">Broker</Label>
-                <RadioGroup
-                  value={broker}
-                  onValueChange={(value: string) => setBroker(value as Broker)}
-                  className="mt-2 grid grid-cols-3 gap-2"
-                  disabled={isTrading}
-                >
-                  {['IQOption', 'Quotex', 'Avalon'].map(b => (
-                    <div key={b} className="flex items-center">
-                      <RadioGroupItem value={b} id={b} className="peer sr-only" />
-                      <Label
-                        htmlFor={b}
-                        className="flex h-12 w-full cursor-pointer items-center justify-center rounded-md border-2 border-muted bg-popover text-sm hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary"
-                      >
-                        {b}
-                      </Label>
+              
+              <div className="p-4 rounded-lg bg-muted/50 border">
+                 <div className="flex justify-between items-center">
+                    <div>
+                        <Label className="text-xs text-muted-foreground">Broker Connection</Label>
+                        {connectedBroker ? (
+                            <div className="flex items-center gap-2 text-lg font-semibold text-success">
+                                <CheckCircle className="h-5 w-5" />
+                                <span>{connectedBroker}</span>
+                            </div>
+                        ) : (
+                             <div className="flex items-center gap-2 text-lg font-semibold text-destructive">
+                                <AlertCircle className="h-5 w-5" />
+                                <span>Not Connected</span>
+                            </div>
+                        )}
                     </div>
-                  ))}
-                </RadioGroup>
+                    {connectedBroker ? (
+                         <Button variant="destructive" size="sm" onClick={handleDisconnect} disabled={isTrading}>Disconnect</Button>
+                    ) : (
+                        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button>Connect</Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px]">
+                                <DialogHeader>
+                                <DialogTitle>Connect to Broker</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <Label>Select Broker</Label>
+                                    <RadioGroup
+                                        value={selectedBroker}
+                                        onValueChange={(value: string) => setSelectedBroker(value as Broker)}
+                                        className="grid grid-cols-3 gap-2"
+                                    >
+                                    {BROKERS.map(b => (
+                                        <div key={b} className="flex items-center">
+                                        <RadioGroupItem value={b} id={b} className="peer sr-only" />
+                                        <Label
+                                            htmlFor={b}
+                                            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-md border-2 border-muted bg-popover text-xs hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary"
+                                        >
+                                            {b}
+                                        </Label>
+                                        </div>
+                                    ))}
+                                    </RadioGroup>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Login (email)</Label>
+                                    <Input id="email" placeholder="email@example.com" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">Password</Label>
+                                    <Input id="password" type="password" />
+                                </div>
+                                </div>
+                                <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button type="button" variant="secondary" disabled={isConnecting}>
+                                        Cancel
+                                    </Button>
+                                </DialogClose>
+                                <Button type="button" onClick={handleConnectBroker} disabled={isConnecting}>
+                                    {isConnecting ? <Loader2 className="animate-spin" /> : 'Connect'}
+                                </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+                 </div>
               </div>
 
               <Separator />
@@ -208,6 +298,7 @@ export default function BrokerOverlay({
                 className="w-full font-bold text-lg h-12"
                 variant={isTrading ? 'destructive' : 'default'}
                 onClick={onToggleTrading}
+                disabled={!connectedBroker}
               >
                 {isTrading ? <Square className="mr-2" /> : <Play className="mr-2" />}
                 {isTrading ? 'Stop Trading' : 'Start Trading'}

@@ -1,4 +1,4 @@
-export type Broker = 'IQOption' | 'Quotex' | 'Avalon';
+export type Broker = 'IQOption' | 'Quotex' | 'Avalon' | 'Exnova' | 'Pocket Option' | 'Deriv';
 
 export type Trade = {
   id: string;
