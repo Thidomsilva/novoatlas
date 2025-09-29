@@ -200,7 +200,9 @@ export default function BrokerOverlay({
             className={cn("flex flex-row items-center justify-between p-4", isDesktop && "cursor-grab active:cursor-grabbing")}
             onMouseDown={handleMouseDown}
           >
-            <AtlasLogo />
+            <div className="flex items-center gap-2 font-headline text-lg font-semibold">
+              <AtlasLogo />
+            </div>
             {isDesktop && <Move className="h-5 w-5 text-muted-foreground" />}
           </CardHeader>
           <CardContent className="p-4 pt-0 space-y-4">
