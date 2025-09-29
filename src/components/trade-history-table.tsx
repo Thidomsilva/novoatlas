@@ -17,7 +17,7 @@ interface TradeHistoryTableProps {
 
 export function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
   return (
-    <ScrollArea className="h-[400px] w-full rounded-md border">
+    <ScrollArea className="h-[200px] w-full rounded-md border">
         <Table>
         <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
             <TableRow>

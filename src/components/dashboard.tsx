@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Trade, RiskSettings } from '@/lib/types';
 import { mockTrades } from '@/lib/mock-data';
 import BrokerOverlay from './broker-overlay';
-import LiveTradingPanel from './live-trading-panel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -97,21 +96,15 @@ export default function Dashboard() {
       riskSettings={riskSettings}
       onSettingsChange={setRiskSettings}
       trades={trades}
+      balance={balance}
+      dailyProfit={dailyProfit}
+      winLoss={winLoss}
       isMobile={isMobile}
     />
   );
   
   return (
-    <div className="relative min-h-screen w-full bg-background font-body text-foreground">
-      <main className="p-4 md:p-8">
-        <LiveTradingPanel
-          balance={balance}
-          dailyProfit={dailyProfit}
-          winLoss={winLoss}
-          trades={trades}
-        />
-      </main>
-      
+    <div className="relative min-h-screen w-full font-body text-foreground">
       {isMobile ? (
         <Sheet>
           <SheetTrigger asChild>

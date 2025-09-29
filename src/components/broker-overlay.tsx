@@ -8,14 +8,14 @@ import { getTradeStrategyRecommendations } from '@/ai/flows/trade-strategy-recom
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Move, Play, Square, Bot, Loader2, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Move, Play, Square, Bot, Loader2, X, CheckCircle, AlertCircle, Wallet, TrendingUp, Ratio } from 'lucide-react';
 import type { Broker, RiskSettings, Trade } from '@/lib/types';
 import { AtlasLogo } from './atlas-logo';
 import {
@@ -36,6 +36,8 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog"
+import { StatCard } from './stat-card';
+import { TradeHistoryTable } from './trade-history-table';
 
 const formSchema = z.object({
   dailyProfitTarget: z.coerce.number().min(0, "Must be positive"),
@@ -50,6 +52,9 @@ interface BrokerOverlayProps {
   riskSettings: RiskSettings;
   onSettingsChange: (settings: RiskSettings) => void;
   trades: Trade[];
+  balance: number;
+  dailyProfit: number;
+  winLoss: { wins: number; losses: number };
   isMobile: boolean;
 }
 
@@ -61,6 +66,9 @@ export default function BrokerOverlay({
   riskSettings,
   onSettingsChange,
   trades,
+  balance,
+  dailyProfit,
+  winLoss,
   isMobile
 }: BrokerOverlayProps) {
   const [selectedBroker, setSelectedBroker] = useState<Broker>('Quotex');
@@ -178,13 +186,14 @@ export default function BrokerOverlay({
     }
   };
   
+  const winRate = (winLoss.wins + winLoss.losses) > 0 ? (winLoss.wins / (winLoss.wins + winLoss.losses)) * 100 : 0;
 
   return (
     <>
       <div
         ref={overlayRef}
-        className={cn( "z-30 w-full", isDesktop && "fixed w-[400px]" )}
-        style={isDesktop ? { top: position.y, left: position.x, touchAction: 'none' } : {}}
+        className={cn( "z-30 w-full", isDesktop && "fixed w-[600px]" )}
+        style={isDesktop ? { top: position.y, left: position.y, touchAction: 'none' } : {}}
       >
         <Card className={cn(isDesktop && "shadow-2xl bg-card/80 backdrop-blur-sm border-primary/20")}>
           <CardHeader 
@@ -194,10 +203,43 @@ export default function BrokerOverlay({
             <AtlasLogo />
             {isDesktop && <Move className="h-5 w-5 text-muted-foreground" />}
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="space-y-4">
-              
-              <div className="p-4 rounded-lg bg-muted/50 border">
+          <CardContent className="p-4 pt-0 space-y-4">
+            
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Saldo da conta"
+                value={`$${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                icon={Wallet}
+              />
+              <StatCard
+                title="Lucro atual"
+                value={`${dailyProfit >= 0 ? '+' : ''}$${dailyProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                icon={TrendingUp}
+              />
+              <StatCard
+                title="W/L"
+                value={`${winLoss.wins}W / ${winLoss.losses}L`}
+                icon={Ratio}
+                smallValue={true}
+              />
+               <StatCard
+                title="Winrate"
+                value={`${winRate.toFixed(1)}%`}
+                icon={Ratio}
+                smallValue={true}
+              />
+            </div >
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Histórico de Operações</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TradeHistoryTable trades={trades} />
+              </CardContent>
+            </Card>
+
+            <div className="p-4 rounded-lg bg-muted/50 border">
                  <div className="flex justify-between items-center">
                     <div>
                         <Label className="text-xs text-muted-foreground">Broker Connection</Label>
@@ -303,8 +345,6 @@ export default function BrokerOverlay({
                 {isTrading ? <Square className="mr-2" /> : <Play className="mr-2" />}
                 {isTrading ? 'Stop Trading' : 'Start Trading'}
               </Button>
-
-            </div>
           </CardContent>
         </Card>
       </div>
