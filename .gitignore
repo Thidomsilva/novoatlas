@@ -40,6 +40,9 @@ next-env.d.ts
 .genkit/*
 .env*
 
+# playwright artifacts
+.playwright/
+
 # firebase
 firebase-debug.log
 firestore-debug.log

@@ -8,8 +8,9 @@
  * - AnalyzeAiPredictionsOutput - The return type for the analyzeAiPredictions function.
  */
 
-import {ai} from '@/ai/genkit';
+import { ai, isOpenAISelected, getOpenAIModelId } from '@/ai/genkit';
 import {z} from 'genkit';
+import OpenAI from 'openai';
 
 const AnalyzeAiPredictionsInputSchema = z.object({
   tradeHistory: z
@@ -36,6 +37,25 @@ export type AnalyzeAiPredictionsOutput = z.infer<
 export async function analyzeAiPredictions(
   input: AnalyzeAiPredictionsInput
 ): Promise<AnalyzeAiPredictionsOutput> {
+  if (isOpenAISelected()) {
+    const modelId = getOpenAIModelId() ?? 'gpt-4o-mini';
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const system = `You are an AI trading analysis expert. Analyze the provided trade history, which includes AI predictions and actual trade outcomes. Provide a summary of the AI's prediction accuracy, identify any trends in prediction performance, and offer key insights into how the AI is influencing trading decisions.`;
+    const user = `Trade history: ${input.tradeHistory}`;
+
+    const chat = await client.chat.completions.create({
+      model: modelId,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.2,
+    });
+
+    const text = chat.choices?.[0]?.message?.content ?? 'No summary available.';
+    return { summary: text };
+  }
+  // Gemini/Genkit path
   return analyzeAiPredictionsFlow(input);
 }
 
