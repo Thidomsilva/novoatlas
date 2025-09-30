@@ -616,8 +616,8 @@ export default function BrokerOverlay({
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({
                                         broker: selectedBroker,
-                                        email: formData.email,
-                                        password: formData.password
+                                        email: loginEmail,
+                                        password: loginPassword
                                       }),
                                     });
                                     
@@ -649,7 +649,7 @@ export default function BrokerOverlay({
                                   } finally {
                                     setIsConnecting(false);
                                   }
-                                }} disabled={isConnecting || !formData.email || !formData.password} variant="outline" className="w-full border-blue-500 text-blue-600 hover:bg-blue-50">
+                                }} disabled={isConnecting || !loginEmail || !loginPassword} variant="outline" className="w-full border-blue-500 text-blue-600 hover:bg-blue-50">
                                   🎬 Debug Visual (Ver Navegador)
                                 </Button>
                                 
