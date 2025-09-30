@@ -193,7 +193,7 @@ export default function BrokerOverlay({
       <div
         ref={overlayRef}
         className={cn( "z-30 w-full", isDesktop && "fixed w-[600px]" )}
-        style={isDesktop ? { top: position.y, left: position.y, touchAction: 'none' } : {}}
+        style={isDesktop ? { top: `${position.y}px`, left: `${position.x}px`, touchAction: 'none' } : {}}
       >
         <Card className={cn(isDesktop && "shadow-2xl bg-card/80 backdrop-blur-sm border-primary/20")}>
           <CardHeader 
@@ -367,3 +367,5 @@ export default function BrokerOverlay({
     </>
   );
 }
+
+    
