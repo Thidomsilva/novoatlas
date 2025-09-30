@@ -108,25 +108,167 @@ export default function BrokerOverlay({
     });
   }
 
+  const handleLocalBrowser = async () => {
+    setIsConnecting(true);
+    try {
+      if (!selectedBroker) {
+        toast({ 
+          variant: 'destructive', 
+          title: 'Broker não selecionado', 
+          description: 'Selecione uma corretora primeiro' 
+        });
+        return;
+      }
+
+      const brokerMap: Record<string, string> = {
+        'Quotex': 'quotex',
+        'IQOption': 'iqoption', 
+        'Exnova': 'exnova'
+      };
+
+      const brokerKey = brokerMap[selectedBroker];
+      if (!brokerKey) {
+        toast({ 
+          variant: 'destructive', 
+          title: 'Broker não suportado', 
+          description: `Navegador local não disponível para ${selectedBroker}` 
+        });
+        return;
+      }
+
+      console.log(`🖥️ Abrindo navegador LOCAL para ${selectedBroker}...`);
+      const res = await fetch('/api/local-browser', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: loginEmail, 
+          password: loginPassword,
+          broker: brokerKey 
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data?.success) {
+        toast({ 
+          title: `🖥️ Navegador ${selectedBroker}`, 
+          description: data.message
+        });
+        console.log(`✅ Navegador local aberto para ${selectedBroker}`);
+      } else {
+        const errorMsg = data?.message || 'Erro desconhecido no navegador local';
+        toast({ 
+          variant: 'destructive', 
+          title: `❌ Falha no navegador local - ${selectedBroker}`, 
+          description: errorMsg 
+        });
+        console.error(`❌ Erro no navegador local para ${selectedBroker}:`, data);
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Erro de conexão no navegador local' });
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleDebugBroker = async () => {
+    setIsConnecting(true);
+    try {
+      // Determinar a URL da API de debug baseada no broker selecionado
+      let debugApiUrl = '';
+      if (selectedBroker === 'Quotex') {
+        debugApiUrl = '/api/debug/quotex';
+      } else if (selectedBroker === 'IQOption') {
+        debugApiUrl = '/api/debug/iqoption';
+      } else if (selectedBroker === 'Exnova') {
+        debugApiUrl = '/api/debug/exnova';
+      } else {
+        toast({ 
+          variant: 'destructive', 
+          title: 'Debug não suportado', 
+          description: `Debug visual não disponível para ${selectedBroker}` 
+        });
+        return;
+      }
+
+      console.log(`🐛 Iniciando debug visual para ${selectedBroker}...`);
+      const res = await fetch(debugApiUrl, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data?.success) {
+        toast({ 
+          title: `🐛 Debug ${selectedBroker}`, 
+          description: data.message
+        });
+        console.log(`✅ Debug visual iniciado para ${selectedBroker}`);
+      } else {
+        const errorMsg = data?.message || 'Erro desconhecido no debug';
+        toast({ 
+          variant: 'destructive', 
+          title: `❌ Falha no debug - ${selectedBroker}`, 
+          description: errorMsg 
+        });
+        console.error(`❌ Erro no debug para ${selectedBroker}:`, data);
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Erro de conexão no debug' });
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const handleConnectBroker = async () => {
     setIsConnecting(true);
     try {
-      if (selectedBroker !== 'Quotex') {
-        toast({ variant: 'destructive', title: 'Por enquanto apenas Quotex é suportada' });
+      // Determinar a URL da API baseada no broker selecionado
+      let apiUrl = '';
+      if (selectedBroker === 'Quotex') {
+        apiUrl = '/api/broker/quotex/login';
+      } else if (selectedBroker === 'IQOption') {
+        apiUrl = '/api/broker/iqoption/login';
+      } else if (selectedBroker === 'Exnova') {
+        apiUrl = '/api/broker/exnova/login';
+      } else {
+        toast({ 
+          variant: 'destructive', 
+          title: 'Broker não suportado', 
+          description: `Por enquanto apenas Quotex, IQ Option e Exnova são suportadas. Selecionado: ${selectedBroker}` 
+        });
         return;
       }
-      const res = await fetch('/api/broker/quotex/login', { 
+
+      console.log(`🚀 Conectando ao ${selectedBroker}...`);
+      const res = await fetch(apiUrl, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail || undefined, password: loginPassword || undefined })
       });
+      
       const data = await res.json();
+      
       if (res.ok && data?.isLoggedIn) {
         setConnectedBroker(selectedBroker);
         setIsDialogOpen(false);
-        toast({ title: `Conectado à ${selectedBroker}`, description: `Saldo: $${(data.balance ?? 0).toFixed(2)}` });
+        toast({ 
+          title: `✅ Conectado à ${selectedBroker}`, 
+          description: `Saldo: $${(data.balance ?? 0).toFixed(2)}` 
+        });
+        console.log(`✅ Conexão com ${selectedBroker} estabelecida com sucesso!`);
       } else {
-        toast({ variant: 'destructive', title: 'Falha no login', description: (data?.error || 'Erro desconhecido') + '. Confira logs e screenshots em .playwright/screenshots se disponíveis.' });
+        const errorMsg = data?.error || 'Erro desconhecido';
+        toast({ 
+          variant: 'destructive', 
+          title: `❌ Falha no login - ${selectedBroker}`, 
+          description: errorMsg + '. Confira logs do servidor para mais detalhes.' 
+        });
+        console.error(`❌ Erro na conexão com ${selectedBroker}:`, data);
       }
     } catch (e) {
       console.error(e);
@@ -402,18 +544,57 @@ export default function BrokerOverlay({
                                 </DialogClose>
                                 <Button type="button" onClick={async () => {
                                   try {
-                                    const r = await fetch('/api/broker/quotex/health');
-                                    const d = await r.json();
-                                    if (r.ok && d?.ok) {
-                                      toast({ title: 'Saúde OK', description: `Balance: ${typeof d.balance === 'number' ? `$${d.balance.toFixed(2)}` : 'indisponível'}` });
+                                    // Determinar URL de health check baseada no broker selecionado
+                                    let healthUrl = '';
+                                    if (selectedBroker === 'Quotex') {
+                                      healthUrl = '/api/broker/quotex/health';
+                                    } else if (selectedBroker === 'IQOption') {
+                                      healthUrl = '/api/broker/iqoption/health';
+                                    } else if (selectedBroker === 'Exnova') {
+                                      healthUrl = '/api/broker/exnova/health';
                                     } else {
-                                      toast({ variant: 'destructive', title: 'Health falhou', description: d?.error || 'verifique logs' });
+                                      toast({ 
+                                        variant: 'destructive', 
+                                        title: 'Broker não suportado', 
+                                        description: 'Selecione Quotex, IQ Option ou Exnova' 
+                                      });
+                                      return;
+                                    }
+
+                                    console.log(`🔍 Testando conexão com ${selectedBroker}...`);
+                                    const r = await fetch(healthUrl);
+                                    const d = await r.json();
+                                    
+                                    if (r.ok && (d?.ok || d?.isLoggedIn)) {
+                                      toast({ 
+                                        title: `✅ ${selectedBroker} - Conexão OK`, 
+                                        description: `Saldo: ${typeof d.balance === 'number' ? `$${d.balance.toFixed(2)}` : 'indisponível'}` 
+                                      });
+                                      console.log(`✅ Health check ${selectedBroker} passou:`, d);
+                                    } else {
+                                      toast({ 
+                                        variant: 'destructive', 
+                                        title: `❌ ${selectedBroker} - Health falhou`, 
+                                        description: d?.error || 'Verifique logs do servidor' 
+                                      });
+                                      console.error(`❌ Health check ${selectedBroker} falhou:`, d);
                                     }
                                   } catch (e) {
-                                    toast({ variant: 'destructive', title: 'Erro ao testar conexão' });
+                                    toast({ 
+                                      variant: 'destructive', 
+                                      title: `❌ Erro ao testar ${selectedBroker}`,
+                                      description: 'Falha na comunicação com o servidor'
+                                    });
+                                    console.error('Erro no health check:', e);
                                   }
                                 }} variant="outline">
                                   Testar conexão
+                                </Button>
+                                <Button type="button" onClick={handleLocalBrowser} disabled={isConnecting} variant="outline">
+                                    {isConnecting ? <Loader2 className="animate-spin" /> : '🖥️ Abrir Local'}
+                                </Button>
+                                <Button type="button" onClick={handleDebugBroker} disabled={isConnecting} variant="secondary">
+                                    {isConnecting ? <Loader2 className="animate-spin" /> : '🐛 Debug Log'}
                                 </Button>
                                 <Button type="button" onClick={handleConnectBroker} disabled={isConnecting}>
                                     {isConnecting ? <Loader2 className="animate-spin" /> : 'Conectar'}

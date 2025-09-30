@@ -29,9 +29,9 @@ primary_region = 'gru'
   processes = ['app']
 
 [[vm]]
-  memory = '2gb'
+  memory = '4gb'
   cpu_kind = 'shared'
-  cpus = 2
+  cpus = 4
 
 [[statics]]
   guest_path = '/app/.next/static'
