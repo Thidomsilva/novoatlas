@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        message: 'Sessão de debug visual iniciada! Acesse https://novoatlas.fly.dev:6080/vnc.html para ver o navegador',
-        vncUrl: 'https://novoatlas.fly.dev:6080/vnc.html',
+        message: 'Sessão de debug visual iniciada! Acesse http://novoatlas.fly.dev:6080/vnc.html para ver o navegador',
+        vncUrl: 'http://novoatlas.fly.dev:6080/vnc.html',
         result
       });
       
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         success: false, 
         message: `Erro na sessão de debug: ${e.message}`,
-        vncUrl: 'https://novoatlas.fly.dev:6080/vnc.html'
+        vncUrl: 'http://novoatlas.fly.dev:6080/vnc.html'
       }, { status: 500 });
     }
     
