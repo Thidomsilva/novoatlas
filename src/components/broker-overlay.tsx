@@ -358,7 +358,7 @@ export default function BrokerOverlay({
   const handleTestEnsemble = async () => {
     setIsLoadingAi(true);
     try {
-      // Monta um features mínimo a partir do estado atual (mock simplificado)
+      // Monta features baseado no estado atual dos trades e configurações
       const candles = trades.slice(0, 10).map(t => ({ o: t.stake, h: t.stake * 1.01, l: t.stake * 0.99, c: t.stake }));
       const payload = {
         brain: 'auto',

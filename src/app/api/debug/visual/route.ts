@@ -19,7 +19,14 @@ export async function POST(req: NextRequest) {
     
     try {
       // Executar com navegador VISUAL no servidor
-      const result = await runner.connectAndPrepareVisual(broker, email || 'test@email.com', password || 'testpass');
+      if (!email || !password) {
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Email e senha são obrigatórios para debug visual' 
+        }, { status: 400 });
+      }
+      
+      const result = await runner.connectAndPrepareVisual(broker, email, password);
       
       return NextResponse.json({
         success: true,

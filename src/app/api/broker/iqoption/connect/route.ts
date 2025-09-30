@@ -17,27 +17,27 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log('🔧 [IQOption Connect] Iniciando conexão de trading...');
-    const runner = tradingBrowserRunner();
+    console.log('🔧 [IQOption Connect] Iniciando conexão direta com IQ Option...');
+    const runner = iqOptionRunner();
     
     try {
-      console.log('🎯 [IQOption Connect] Conectando e preparando para operação...');
-      const result = await runner.connectAndPrepare('iqoption', email, password);
+      console.log('🎯 [IQOption Connect] Fazendo login na IQ Option...');
+      await runner.loginIfNeeded({ email, password });
       
-      console.log('✅ [IQOption Connect] Resultado da conexão:', result);
+      console.log('💰 [IQOption Connect] Capturando saldo...');
+      const realBalance = await runner.getBalance().catch(() => undefined);
       
-      if (result.success && result.isReady) {
-        console.log('🔄 [IQOption Connect] IQ Option pronto e mantido ativo para sinais...');
-        
-        // Capturar saldo real após conexão bem-sucedida
-        const iqRunner = iqOptionRunner();
-        const realBalance = await iqRunner.getBalance().catch(() => undefined);
+      const isLoggedIn = realBalance !== undefined;
+      console.log('✅ [IQOption Connect] Resultado:', { isLoggedIn, realBalance });
+      
+      if (isLoggedIn) {
+        console.log('🔄 [IQOption Connect] IQ Option conectado com sucesso!');
         
         return NextResponse.json({
           success: true,
           isLoggedIn: true,
-          isReady: result.isReady,
-          message: result.message,
+          isReady: true,
+          message: 'IQ Option conectado com sucesso!',
           balance: realBalance,
           broker: 'IQ Option'
         });
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
           success: false, 
           isLoggedIn: false,
           isReady: false,
-          message: result.message 
+          message: 'Falha no login - credenciais inválidas ou problema na conexão' 
         }, { status: 500 });
       }
       
