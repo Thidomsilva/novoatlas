@@ -28,6 +28,19 @@ primary_region = 'gru'
   min_machines_running = 1
   processes = ['app']
 
+# Serviço VNC para debug visual remoto
+[[services]]
+  internal_port = 6080
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 6080
+    handlers = ["http"]
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+
 [[vm]]
   memory = '4gb'
   cpu_kind = 'shared'

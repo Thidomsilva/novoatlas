@@ -230,11 +230,11 @@ export default function BrokerOverlay({
       // Determinar a URL da API baseada no broker selecionado
       let apiUrl = '';
       if (selectedBroker === 'Quotex') {
-        apiUrl = '/api/broker/quotex/login';
+        apiUrl = '/api/broker/quotex/connect';
       } else if (selectedBroker === 'IQOption') {
-        apiUrl = '/api/broker/iqoption/login';
+        apiUrl = '/api/broker/iqoption/connect';
       } else if (selectedBroker === 'Exnova') {
-        apiUrl = '/api/broker/exnova/login';
+        apiUrl = '/api/broker/exnova/connect';
       } else {
         toast({ 
           variant: 'destructive', 
@@ -245,6 +245,12 @@ export default function BrokerOverlay({
       }
 
       console.log(`🚀 Conectando ao ${selectedBroker}...`);
+      
+      toast({ 
+        title: `🔄 Conectando ${selectedBroker}`, 
+        description: 'Abrindo navegador e fazendo login...' 
+      });
+
       const res = await fetch(apiUrl, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,20 +259,20 @@ export default function BrokerOverlay({
       
       const data = await res.json();
       
-      if (res.ok && data?.isLoggedIn) {
+      if (res.ok && data?.isLoggedIn && data?.isReady) {
         setConnectedBroker(selectedBroker);
         setIsDialogOpen(false);
         toast({ 
-          title: `✅ Conectado à ${selectedBroker}`, 
-          description: `Saldo: $${(data.balance ?? 0).toFixed(2)}` 
+          title: `✅ ${selectedBroker} Pronto!`, 
+          description: `Navegador aberto e pronto para sinais! Saldo: $${(data.balance ?? 0).toFixed(2)}` 
         });
-        console.log(`✅ Conexão com ${selectedBroker} estabelecida com sucesso!`);
+        console.log(`✅ ${selectedBroker} conectado e pronto para operação!`);
       } else {
-        const errorMsg = data?.error || 'Erro desconhecido';
+        const errorMsg = data?.message || 'Erro na conexão';
         toast({ 
           variant: 'destructive', 
-          title: `❌ Falha no login - ${selectedBroker}`, 
-          description: errorMsg + '. Confira logs do servidor para mais detalhes.' 
+          title: `❌ Falha na conexão - ${selectedBroker}`, 
+          description: errorMsg 
         });
         console.error(`❌ Erro na conexão com ${selectedBroker}:`, data);
       }
@@ -484,9 +490,14 @@ export default function BrokerOverlay({
                     <div>
                         <Label className="text-xs text-muted-foreground">Conexão com a corretora</Label>
                         {connectedBroker ? (
-                            <div className="flex items-center gap-2 text-lg font-semibold text-success">
-                                <CheckCircle className="h-5 w-5" />
-                                <span>{connectedBroker}</span>
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 text-lg font-semibold text-success">
+                                    <CheckCircle className="h-5 w-5" />
+                                    <span>{connectedBroker}</span>
+                                </div>
+                                <div className="text-xs text-green-600">
+                                    🌐 Navegador ativo • 🎯 Pronto para sinais
+                                </div>
                             </div>
                         ) : (
                              <div className="flex items-center gap-2 text-lg font-semibold text-destructive">
@@ -590,14 +601,60 @@ export default function BrokerOverlay({
                                 }} variant="outline">
                                   Testar conexão
                                 </Button>
-                                <Button type="button" onClick={handleLocalBrowser} disabled={isConnecting} variant="outline">
-                                    {isConnecting ? <Loader2 className="animate-spin" /> : '🖥️ Abrir Local'}
+                                
+                                {/* Botão de Debug Visual */}
+                                <Button type="button" onClick={async () => {
+                                  try {
+                                    setIsConnecting(true);
+                                    toast({ 
+                                      title: '🎬 Iniciando Debug Visual',
+                                      description: `Abrindo navegador ${selectedBroker} para visualização remota...`
+                                    });
+                                    
+                                    const res = await fetch('/api/debug/visual', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        broker: selectedBroker,
+                                        email: formData.email,
+                                        password: formData.password
+                                      }),
+                                    });
+                                    
+                                    const data = await res.json();
+                                    
+                                    if (data.success) {
+                                      toast({ 
+                                        title: '🖥️ Navegador Visual Aberto!',
+                                        description: `Acesse: ${data.vncUrl}`
+                                      });
+                                      
+                                      // Abrir VNC em nova aba
+                                      window.open(data.vncUrl, '_blank');
+                                    } else {
+                                      toast({ 
+                                        variant: 'destructive', 
+                                        title: '❌ Erro no Debug Visual',
+                                        description: data.message 
+                                      });
+                                    }
+                                    
+                                  } catch (e) {
+                                    toast({ 
+                                      variant: 'destructive', 
+                                      title: '❌ Erro no Debug',
+                                      description: 'Falha ao iniciar modo visual'
+                                    });
+                                    console.error('Erro debug visual:', e);
+                                  } finally {
+                                    setIsConnecting(false);
+                                  }
+                                }} disabled={isConnecting || !formData.email || !formData.password} variant="outline" className="w-full border-blue-500 text-blue-600 hover:bg-blue-50">
+                                  🎬 Debug Visual (Ver Navegador)
                                 </Button>
-                                <Button type="button" onClick={handleDebugBroker} disabled={isConnecting} variant="secondary">
-                                    {isConnecting ? <Loader2 className="animate-spin" /> : '🐛 Debug Log'}
-                                </Button>
-                                <Button type="button" onClick={handleConnectBroker} disabled={isConnecting}>
-                                    {isConnecting ? <Loader2 className="animate-spin" /> : 'Conectar'}
+                                
+                                <Button type="button" onClick={handleConnectBroker} disabled={isConnecting} className="w-full">
+                                    {isConnecting ? <Loader2 className="animate-spin" /> : 'Conectar e Abrir Trading'}
                                 </Button>
                                 </DialogFooter>
                             </DialogContent>
