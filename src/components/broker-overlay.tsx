@@ -629,8 +629,8 @@ export default function BrokerOverlay({
                                         description: `Acesse: ${data.vncUrl}`
                                       });
                                       
-                                      // Abrir VNC em nova aba - FORÇAR HTTP
-                                      window.open('http://novoatlas.fly.dev:6080/vnc.html', '_blank');
+                                      // Abrir VNC via proxy HTTPS (contorna SSL)
+                                      window.open('/api/vnc', '_blank');
                                     } else {
                                       toast({ 
                                         variant: 'destructive', 
