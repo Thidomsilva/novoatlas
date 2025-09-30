@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tradingBrowserRunner } from '@/lib/brokers/tradingBrowserRunner';
+import { quotexRunner } from '@/lib/brokers/quotexRunner';
 
 export async function POST(req: NextRequest) {
   console.log('🚀 [Quotex Connect] Conectando para operação em tempo real...');
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
           isLoggedIn: true,
           isReady: result.isReady,
           message: result.message,
-          balance: 1000.00, // Implementar leitura real do saldo
+          balance: await quotexRunner().getBalance().catch(() => undefined),
           broker: 'Quotex'
         });
       } else {

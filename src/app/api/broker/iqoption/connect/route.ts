@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tradingBrowserRunner } from '@/lib/brokers/tradingBrowserRunner';
+import { iqOptionRunner } from '@/lib/brokers/iqOptionRunner';
 
 export async function POST(req: NextRequest) {
   console.log('🚀 [IQOption Connect] Conectando para operação em tempo real...');
@@ -28,12 +29,16 @@ export async function POST(req: NextRequest) {
       if (result.success && result.isReady) {
         console.log('🔄 [IQOption Connect] IQ Option pronto e mantido ativo para sinais...');
         
+        // Capturar saldo real após conexão bem-sucedida
+        const iqRunner = iqOptionRunner();
+        const realBalance = await iqRunner.getBalance().catch(() => undefined);
+        
         return NextResponse.json({
           success: true,
           isLoggedIn: true,
           isReady: result.isReady,
           message: result.message,
-          balance: 1000.00,
+          balance: realBalance,
           broker: 'IQ Option'
         });
       } else {

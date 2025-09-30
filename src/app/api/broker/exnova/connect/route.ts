@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tradingBrowserRunner } from '@/lib/brokers/tradingBrowserRunner';
+import { exnovaRunner } from '@/lib/brokers/exnovaRunner';
 
 export async function POST(req: NextRequest) {
   console.log('🚀 [Exnova Connect] Conectando para operação em tempo real...');
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
           isLoggedIn: true,
           isReady: result.isReady,
           message: result.message,
-          balance: 1000.00,
+          balance: await exnovaRunner().getBalance().catch(() => undefined),
           broker: 'Exnova'
         });
       } else {
