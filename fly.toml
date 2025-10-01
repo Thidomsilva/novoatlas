@@ -1,0 +1,51 @@
+# fly.toml app configuration file generated for novoatlas on 2025-09-29T18:10:53-03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'novoatlas'
+primary_region = 'gru'
+
+[build]
+
+[env]
+  LOCALE = 'pt-BR'
+  NODE_ENV = 'production'
+  PLAYWRIGHT_CHANNEL = 'chromium'
+  PLAYWRIGHT_HEADLESS = '1'
+  PLAYWRIGHT_PERSISTENT = '0'
+  TIMEZONE = 'America/Sao_Paulo'
+
+[[mounts]]
+  source = 'novoatlas_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+# Serviço VNC para debug visual remoto
+[[services]]
+  internal_port = 6080
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 6080
+    handlers = ["http"]
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+
+[[vm]]
+  memory = '4gb'
+  cpu_kind = 'shared'
+  cpus = 4
+
+[[statics]]
+  guest_path = '/app/.next/static'
+  url_prefix = '/_next/static'

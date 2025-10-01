@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import type { Trade, RiskSettings } from '@/lib/types';
-import { mockTrades } from '@/lib/mock-data';
 import BrokerOverlay from './broker-overlay';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -19,10 +18,11 @@ const initialRiskSettings: RiskSettings = {
 const PAIRS = ['EUR/USD', 'GBP/JPY', 'AUD/CAD', 'USD/CHF', 'NZD/USD'];
 
 export default function Dashboard() {
-  const [trades, setTrades] = useState<Trade[]>(mockTrades);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [riskSettings, setRiskSettings] = useState<RiskSettings>(initialRiskSettings);
   const [isTrading, setIsTrading] = useState(false);
-  const [balance, setBalance] = useState(1000);
+  const [balance, setBalance] = useState(0);
+  const [lastTradeAt, setLastTradeAt] = useState<number | null>(null);
 
   const isMobile = useIsMobile();
 
@@ -43,51 +43,58 @@ export default function Dashboard() {
     return { wins, losses };
   }, [trades]);
 
+  // Atualiza saldo real da Quotex periodicamente quando trading estiver ativo
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
-
-    if (isTrading) {
-      interval = setInterval(() => {
-        const stake = balance * (riskSettings.stakePercentage / 100);
-        const newTrade: Trade = {
-          id: (trades.length + 1).toString(),
-          timestamp: new Date(),
-          pair: PAIRS[Math.floor(Math.random() * PAIRS.length)],
-          direction: Math.random() > 0.5 ? 'buy' : 'sell',
-          stake,
-          outcome: 'pending',
-          profit: 0,
-          aiPrediction: Math.random() * (0.99 - 0.5) + 0.5,
-        };
-        
-        setTrades(prev => [newTrade, ...prev]);
-
-        // Simulate trade outcome
-        setTimeout(() => {
-          setTrades(prevTrades => {
-            const currentTrade = prevTrades.find(t => t.id === newTrade.id);
-            if (!currentTrade) return prevTrades;
-            
-            const outcome = Math.random() > 0.45 ? 'win' : 'loss';
-            const profit = outcome === 'win' ? stake * 0.87 : -stake;
-            
-            const updatedTrade = { ...currentTrade, outcome, profit };
-            
-            setBalance(prevBalance => prevBalance + profit);
-            
-            return prevTrades.map(t => (t.id === newTrade.id ? updatedTrade : t));
-          });
-        }, 5000); // 5 second trade
-
-      }, 10000); // New trade every 10 seconds
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/broker/quotex/status');
+        const data = await res.json();
+        if (data?.isLoggedIn && typeof data.balance === 'number') {
+          setBalance(data.balance);
+        }
+      } catch {}
     };
-  }, [isTrading, balance, riskSettings, trades.length]);
+    poll();
+    if (isTrading) {
+      interval = setInterval(poll, 15000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [isTrading]);
+
+  // Loop simples de execução quando trading está ativo (cooldown + stop diário)
+  useEffect(() => {
+    if (!isTrading) return;
+    let timer: NodeJS.Timeout | null = null;
+    const COOLDOWN_MS = 15_000; // 15s
+    const loop = async () => {
+      // Stop diário por PnL
+      if (dailyProfit <= -Math.abs(riskSettings.maxLoss)) return;
+      if (dailyProfit >= Math.abs(riskSettings.dailyProfitTarget)) return;
+      // Cooldown
+      const now = Date.now();
+      if (lastTradeAt && now - lastTradeAt < COOLDOWN_MS) return;
+      try {
+        const candles = trades.slice(0, 10).map(t => ({ o: t.stake, h: t.stake * 1.01, l: t.stake * 0.99, c: t.stake }));
+        const res = await fetch('/api/trade/auto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brain: 'auto', pair: 'EURUSD_otc', tf_sec: 60,
+            features: { candles, rsi14: 50, ema9: 1, ema21: 1, ema50: 1, atrz: 1, bbpos: 0, macd_hist: 0 },
+            session: { wins_row: winLoss.wins, losses_row: winLoss.losses, pnl_day: dailyProfit, gales_left: 1, payout: 0.87 },
+            policy_hints: { th_prob: 0.58, th_score: 0.1, th_policy: Math.max(0, Math.min(1, (riskSettings.aiThreshold ?? 60) / 100)) },
+            stake_percentage: riskSettings.stakePercentage,
+            min_stake: 1,
+          }),
+        });
+        await res.json().catch(() => ({}));
+        setLastTradeAt(Date.now());
+      } catch {}
+    };
+    timer = setInterval(loop, 5000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [isTrading, trades, riskSettings, dailyProfit, winLoss]);
 
   const overlay = (
     <BrokerOverlay

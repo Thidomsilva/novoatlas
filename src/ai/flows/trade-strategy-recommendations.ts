@@ -9,8 +9,9 @@
  * - TradeStrategyRecommendationsOutput - The return type for the getTradeStrategyRecommendations function.
  */
 
-import {ai} from '@/ai/genkit';
+import { ai, isOpenAISelected, getOpenAIModelId } from '@/ai/genkit';
 import {z} from 'genkit';
+import OpenAI from 'openai';
 
 const TradeStrategyRecommendationsInputSchema = z.object({
   tradingHistory: z
@@ -33,6 +34,25 @@ export type TradeStrategyRecommendationsOutput = z.infer<
 export async function getTradeStrategyRecommendations(
   input: TradeStrategyRecommendationsInput
 ): Promise<TradeStrategyRecommendationsOutput> {
+  if (isOpenAISelected()) {
+    const modelId = getOpenAIModelId() ?? 'gpt-4o-mini';
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const system = `You are an AI trading strategy expert. Analyze the user's trading history and provide recommendations on how to configure their risk management settings. Provide specific advice on daily profit target, maximum loss, stake percentage, and AI thresholds. Format your response as a list of actionable recommendations.`;
+    const user = `Trading History: ${input.tradingHistory}`;
+
+    const chat = await client.chat.completions.create({
+      model: modelId,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.3,
+    });
+
+    const text = chat.choices?.[0]?.message?.content ?? 'No recommendations available.';
+    return { recommendations: text };
+  }
+  // Gemini/Genkit path
   return tradeStrategyRecommendationsFlow(input);
 }
 
