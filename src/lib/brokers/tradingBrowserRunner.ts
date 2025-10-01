@@ -1,3 +1,4 @@
+
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 
 class TradingBrowserRunner {
@@ -13,7 +14,7 @@ class TradingBrowserRunner {
   async connectAndPrepareVisual(broker: 'quotex' | 'iqoption' | 'exnova', email: string, password: string): Promise<{ success: boolean; message: string; isReady: boolean }> {
     try {
       console.log(`[TradingBrowser] 🎬 MODO VISUAL REMOTO: Conectando ${broker.toUpperCase()}...`);
-      console.log(`[TradingBrowser] 📺 Navegador será visível em: https://novoatlas.fly.dev:6080/vnc.html`);
+      console.log(`[TradingBrowser] 📺 Navegador será visível em: http://novoatlas.fly.dev:6080/vnc.html`);
       
       // Configurações para NAVEGADOR VISUAL no servidor
       const browserOptions = {
@@ -43,7 +44,7 @@ class TradingBrowserRunner {
 
       this.page = await this.context.newPage();
       
-      console.log(`[TradingBrowser] ✅ Navegador VISUAL ativo! Acesse: https://novoatlas.fly.dev:6080/vnc.html`);
+      console.log(`[TradingBrowser] ✅ Navegador VISUAL ativo! Acesse: http://novoatlas.fly.dev:6080/vnc.html`);
       
       // Executar processo de login com debug visual
       const brokerConfig = this.getBrokerConfig(broker);
@@ -77,7 +78,7 @@ class TradingBrowserRunner {
       // Manter navegador aberto indefinidamente para debug
       return {
         success: true,
-        message: `Navegador ${broker} aberto em modo debug visual! Acesse https://novoatlas.fly.dev:6080/vnc.html`,
+        message: `Navegador ${broker} aberto em modo debug visual! Acesse http://novoatlas.fly.dev:6080/vnc.html`,
         isReady: true
       };
       
@@ -193,9 +194,18 @@ class TradingBrowserRunner {
       exnova: {
         name: 'Exnova',
         loginUrls: ['https://trade.exnova.com/pt/login'],
-        emailSelectors: ['input[name="email"]', 'input[type="email"]'],
-        passwordSelectors: ['input[name="password"]', 'input[type="password"]'],
-        loginButtonSelectors: ['button[type="submit"]']
+        emailSelectors: [
+            'input[name="email"]',
+            'input[type="email"]', 
+            'input[placeholder*="email" i]',
+            'input[placeholder*="e-mail" i]',
+        ],
+        passwordSelectors: [
+            'input[name="password"]',
+            'input[type="password"]',
+            'input[placeholder*="senha" i]',
+        ],
+        loginButtonSelectors: ['button[type="submit"]', 'button:has-text("Login")']
       }
     };
     
@@ -206,31 +216,49 @@ class TradingBrowserRunner {
     console.log(`[TradingBrowser] 🔐 Fazendo login no ${config.name}...`);
     
     try {
-      await this.page!.goto(config.loginUrls[0], { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await this.page!.waitForTimeout(3000);
+        await this.page!.goto(config.loginUrls[0], { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await this.page!.waitForTimeout(3000);
 
-      // Preencher email
-      const emailInput = await this.page!.$(config.emailSelectors[0]);
-      if (emailInput) {
-        await emailInput.fill(email);
-        await this.page!.waitForTimeout(1000);
-      }
+        let emailInput;
+        for (const selector of config.emailSelectors) {
+            emailInput = await this.page!.$(selector);
+            if (emailInput) break;
+        }
 
-      // Preencher senha
-      const passwordInput = await this.page!.$(config.passwordSelectors[0]);
-      if (passwordInput) {
-        await passwordInput.fill(password);
-        await this.page!.waitForTimeout(1000);
-      }
+        if (emailInput) {
+            await emailInput.fill(email);
+            await this.page!.waitForTimeout(1000);
+        } else {
+            throw new Error('Email input not found');
+        }
 
-      // Clicar login
-      const loginButton = await this.page!.$(config.loginButtonSelectors[0]);
-      if (loginButton) {
-        await loginButton.click();
-        await this.page!.waitForTimeout(5000);
-      }
+        let passwordInput;
+        for (const selector of config.passwordSelectors) {
+            passwordInput = await this.page!.$(selector);
+            if (passwordInput) break;
+        }
+        
+        if (passwordInput) {
+            await passwordInput.fill(password);
+            await this.page!.waitForTimeout(1000);
+        } else {
+            throw new Error('Password input not found');
+        }
+        
+        let loginButton;
+        for (const selector of config.loginButtonSelectors) {
+            loginButton = await this.page!.$(selector);
+            if (loginButton) break;
+        }
 
-      return { success: true, message: `Login ${config.name} realizado`, isReady: false };
+        if (loginButton) {
+            await loginButton.click();
+            await this.page!.waitForTimeout(5000);
+        } else {
+            throw new Error('Login button not found');
+        }
+
+        return { success: true, message: `Login ${config.name} realizado`, isReady: false };
       
     } catch (error) {
       console.error(`[TradingBrowser] ❌ Erro no login:`, error);
