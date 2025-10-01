@@ -657,5 +657,3 @@ export function exnovaRunner(): ExnovaRunnerImpl {
   if (!singleton) singleton = new ExnovaRunnerImpl();
   return singleton;
 }
-
-    
