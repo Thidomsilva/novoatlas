@@ -244,9 +244,14 @@ class ExnovaRunnerImpl {
       const emailInput = await this.findEmailInput(page);
       const passwordInput = await this.findPasswordInput(page);
       
-      if (!emailInput || !passwordInput) {
-        console.log('❌ [Exnova Login] Campos de login não encontrados');
-        await this.debugScreenshot(page, 'exnova-login-fields-not-found');
+      if (!emailInput) {
+        console.error('❌ [Exnova Login] CAMPO DE EMAIL NÃO ENCONTRADO');
+        await this.debugScreenshot(page, 'exnova-login-email-not-found');
+        return false;
+      }
+      if (!passwordInput) {
+        console.error('❌ [Exnova Login] CAMPO DE SENHA NÃO ENCONTRADO');
+        await this.debugScreenshot(page, 'exnova-login-password-not-found');
         return false;
       }
       
@@ -493,10 +498,14 @@ class ExnovaRunnerImpl {
     ];
     
     for (const selector of selectors) {
-      const element = await page.$(selector);
-      if (element) {
-        console.log(`📧 [Exnova Login] Campo de email encontrado: ${selector}`);
-        return element;
+      try {
+        const element = await page.waitForSelector(selector, { state: 'visible', timeout: 2000 });
+        if (element) {
+            console.log(`📧 [Exnova Login] Campo de email encontrado: ${selector}`);
+            return element;
+        }
+      } catch(e) {
+          // ignore and try next selector
       }
     }
     
@@ -515,11 +524,15 @@ class ExnovaRunnerImpl {
     ];
     
     for (const selector of selectors) {
-      const element = await page.$(selector);
-      if (element) {
-        console.log(`🔒 [Exnova Login] Campo de senha encontrado: ${selector}`);
-        return element;
-      }
+        try {
+            const element = await page.waitForSelector(selector, { state: 'visible', timeout: 2000 });
+            if (element) {
+                console.log(`🔒 [Exnova Login] Campo de senha encontrado: ${selector}`);
+                return element;
+            }
+        } catch(e) {
+            // ignore and try next selector
+        }
     }
     
     return null;
@@ -538,11 +551,15 @@ class ExnovaRunnerImpl {
     ];
     
     for (const selector of selectors) {
-      const element = await page.$(selector);
-      if (element) {
-        console.log(`🔘 [Exnova Login] Botão de submit encontrado: ${selector}`);
-        return element;
-      }
+        try {
+            const element = await page.waitForSelector(selector, { state: 'visible', timeout: 2000 });
+            if (element) {
+                console.log(`🔘 [Exnova Login] Botão de submit encontrado: ${selector}`);
+                return element;
+            }
+        } catch(e) {
+            // ignore and try next selector
+        }
     }
     
     return null;
@@ -640,3 +657,5 @@ export function exnovaRunner(): ExnovaRunnerImpl {
   if (!singleton) singleton = new ExnovaRunnerImpl();
   return singleton;
 }
+
+    
