@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { tradingBrowserRunner } from '@/lib/brokers/tradingBrowserRunner';
 import { exnovaRunner } from '@/lib/brokers/exnovaRunner';
 
 export async function POST(req: NextRequest) {
@@ -17,24 +16,28 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log('🔧 [Exnova Connect] Iniciando conexão de trading...');
-    const runner = tradingBrowserRunner();
+    console.log('🔧 [Exnova Connect] Iniciando conexão direta com Exnova...');
+    const runner = exnovaRunner();
     
     try {
-      console.log('🎯 [Exnova Connect] Conectando e preparando para operação...');
-      const result = await runner.connectAndPrepare('exnova', email, password);
+      console.log('🎯 [Exnova Connect] Fazendo login na Exnova...');
+      await runner.loginIfNeeded({ email, password });
       
-      console.log('✅ [Exnova Connect] Resultado da conexão:', result);
+      console.log('💰 [Exnova Connect] Capturando saldo...');
+      const balance = await runner.getBalance().catch(() => undefined);
       
-      if (result.success && result.isReady) {
+      const isLoggedIn = balance !== undefined;
+      console.log('✅ [Exnova Connect] Resultado:', { isLoggedIn, balance });
+      
+      if (isLoggedIn) {
         console.log('🔄 [Exnova Connect] Exnova pronto e mantido ativo para sinais...');
         
         return NextResponse.json({
           success: true,
           isLoggedIn: true,
-          isReady: result.isReady,
-          message: result.message,
-          balance: await exnovaRunner().getBalance().catch(() => undefined),
+          isReady: true,
+          message: 'Exnova conectado com sucesso!',
+          balance: balance,
           broker: 'Exnova'
         });
       } else {
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
           success: false, 
           isLoggedIn: false,
           isReady: false,
-          message: result.message 
+          message: 'Falha no login - credenciais inválidas ou problema na conexão' 
         }, { status: 500 });
       }
       

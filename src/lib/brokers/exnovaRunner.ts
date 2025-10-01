@@ -181,7 +181,8 @@ class ExnovaRunnerImpl {
         // Verificar se já está logado
         if (await this.isLogged(page)) {
           console.log('✅ [Exnova Login] Já está logado');
-          return;
+          success = true;
+          break;
         }
 
         // Lidar com proteções anti-bot
@@ -334,13 +335,26 @@ class ExnovaRunnerImpl {
     ];
 
     for (const selector of loggedSelectors) {
-      const element = await page.$(selector);
-      if (element) return true;
+      try {
+        const element = await page.waitForSelector(selector, { timeout: 3000, state: 'visible' });
+        if (element) {
+            console.log(`[Exnova Login] Login verificado com seletor: ${selector}`);
+            return true;
+        }
+      } catch (e) {
+        // continue
+      }
     }
     
-    // Verificar URL
+    // Verificar URL como fallback
     const url = page.url();
-    return !url.includes('/login') && !url.includes('/sign-in');
+    if(!url.includes('/login') && !url.includes('/sign-in')) {
+        console.log(`[Exnova Login] Login verificado com URL: ${url}`);
+        return true;
+    }
+    
+    console.log('[Exnova Login] Verificação de login falhou.');
+    return false;
   }
 
   private async readBalance(page: Page): Promise<number> {
