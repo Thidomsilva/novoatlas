@@ -193,8 +193,8 @@ class TradingBrowserRunner {
       exnova: {
         name: 'Exnova',
         loginUrls: ['https://trade.exnova.com/pt/login'],
-        emailSelectors: ['input[name="identifier"]'],
-        passwordSelectors: ['input[name="password"]'],
+        emailSelectors: ['input[name="email"]', 'input[type="email"]'],
+        passwordSelectors: ['input[name="password"]', 'input[type="password"]'],
         loginButtonSelectors: ['button[type="submit"]']
       }
     };
